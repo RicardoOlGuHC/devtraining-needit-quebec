@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <!-- CSS -->
+    <style>
+        .dropdown-form {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            flex-direction: row;
+        }
+
+        @media (max-width: 700px) {
+            .dropdown-form {
+                flex-direction: column;
+            }
+
+            .pull-right {
+                flex-direction: inherit;
+                align-items: center;
+            }
+        }
+    </style>
+
+    <!-- HTML -->
+    <div ng-if='!loadingData && data.showDropdown'>
+        <form ng-if='data.portal == "mobile" && data.table == "x_nuvo_eam_clinical_work_orders"' ng-submit="sendData()"
+            display: grid;>
+            <div class="dropdown-form">
+                <span>Deparment:</span>
+                <select ng-model="data.depart"
+                    style="color:#000; width:160px; height: 34px; border-radius: 5px; text-overflow: ellipsis;">
+                    <option value="" selected disabled hidden>Select a department</option>
+                    <option ng-if='data.deparment.length == 0' value="" selected>Departments not availables</option>
+                    <option ng-repeat='data in data.deparment' value="{{data.id}}">{{data.name}}</option>
+                </select>
+                <span>Site:</span>
+                <select ng-model="data.locat" style="color:#000; width:160px; height: 34px; border-radius: 5px;">
+                    <option value="" selected disabled hidden>Select a site</option>
+                    <option ng-if='data.location.length == 0' value="" selected>Sites not availables</option>
+                    <option ng-repeat='data in data.location' value="{{data.id}}">{{data.name}}</option>
+                </select>
+                <span class="input-group-btn">
+                    <button name="search" class="btn btn-default" type="submit" aria-label="${Filter}"
+                        style="border-radius: 5px;"><span class="glyphicon glyphicon-search"></span></button>
+                </span>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        /*
+        ** Client Controller 
+        */
+        $scope.sendData = function () {
+            if ($scope.portal.url_suffix == 'mobile') {
+                $scope.data.p = 1;
+                if ($scope.data.locat == null && $scope.data.depart == null) {
+                    //alert("Please, select an option");
+                    spModal.alert("Please, select an option to filter by deparment and site the current list");
+                    return;
+                }
+                if ($scope.data.locat || $scope.data.depart) {
+                    var scFilter = $scope.data.filter;
+                    $scope.data.isFiltered = false;
+                    if (scFilter.includes('asset.u_eam_department=')) {
+                        var newDepFilter = scFilter.split('^asset.u_eam_department=');
+                        var oldDepSysID = newDepFilter[1].split('^')[0];
+
+                        if ($scope.data.depart != 'all' && $scope.data.depart != 'empty')
+                            scFilter = newDepFilter[0] + '^asset.u_eam_department=' + newDepFilter[1].replace(oldDepSysID, $scope.data.depart);
+
+                        else if ($scope.data.depart != 'all' && $scope.data.depart == 'empty')
+                            scFilter = newDepFilter[0] + '^asset.u_eam_department=' + newDepFilter[1].replace(oldDepSysID, null);
+
+                        else if (($scope.data.depart == 'all' || $scope.data.depart == null) && $scope.data.depart != 'empty')
+                            scFilter = newDepFilter[0];
+                        $scope.data.isFiltered = true;
+                        $scope.data.filter = scFilter;
+                    }
+
+                    if (scFilter.includes('u_site=')) {
+                        var valOR = scFilter.includes('^ORu_site=');
+                        if (valOR)
+                            scFilter = scFilter.replace('^ORu_site=', '^u_site=');
+                        var newSitFilter = scFilter.split('^u_site=');
+                        var oldSitSysID = newSitFilter[1].split('^')[0];
+
+                        if ($scope.data.locat && ($scope.data.locat != 'all' && $scope.data.locat != 'empty')) {
+                            if (valOR)
+                                scFilter = newSitFilter[0] + '^ORu_site=' + newSitFilter[1].replace(oldSitSysID, $scope.data.locat);
+                            else
+                                scFilter = newSitFilter[0] + '^u_site=' + newSitFilter[1].replace(oldSitSysID, $scope.data.locat);
+                        }
+
+                        else if ($scope.data.locat && ($scope.data.locat != 'all' && $scope.data.locat == 'empty')) {
+                            if (valOR)
+                                scFilter = newSitFilter[0] + '^ORu_site=' + newSitFilter[1].replace(oldSitSysID, null);
+                            else
+                                scFilter = newSitFilter[0] + '^u_site=' + newSitFilter[1].replace(oldSitSysID, null);
+                        }
+
+                        else if ($scope.data.locat && ($scope.data.locat == 'all' && $scope.data.locat == 'null'))
+                            scFilter = newSitFilter[0];
+
+                        $scope.data.isFiltered = true;
+                        $scope.data.filter = scFilter;
+                    }
+
+                    if (!scFilter.includes('asset.u_eam_department=') && scFilter.includes('^u_site=')) {
+                        var newDepFilter = scFilter.split('^u_site=');
+                        var oldSitSysID = newDepFilter[1].split('^')[0];
+                        if (($scope.data.locat != 'all' && $scope.data.locat != 'empty' && $scope.data.locat != null) && ($scope.data.depart != 'all' && $scope.data.depart != 'empty' && $scope.data.depart != null))
+                            scFilter = newDepFilter[0] + '^asset.u_eam_department=' + $scope.data.depart + '^ORu_site=' + newDepFilter[1].replace(oldSitSysID, $scope.data.locat);
+                        $scope.data.isFiltered = true;
+                        $scope.data.filter = scFilter;
+                    }
+                    if (scFilter.includes('^asset.u_eam_department=') && !scFilter.includes('u_site=')) {
+                        var newSitFilter = scFilter.split('^asset.u_eam_department');
+                        var oldSitSysID = newSitFilter[1].split('^')[0];
+                        if (($scope.data.locat != 'all' && $scope.data.locat != 'empty' && $scope.data.locat != null) && ($scope.data.depart != 'all' && $scope.data.depart != 'empty' && $scope.data.depart != null))
+                            scFilter = newSitFilter[0] + '^asset.u_eam_department=' + newDepFilter[1].replace(oldDepSysID, $scope.data.depart) + '^ORu_site=' + $scope.data.locat;
+                        $scope.data.isFiltered = true;
+                        $scope.data.filter = scFilter;
+                    }
+                }
+                getData(true);
+            } else {
+                alert("Action not permited, this is only avariable for Mobile portal");
+                return;
+            }
+        }
+
+        /*
+        ** Server Script 
+        */
+        data.view = data.view || $sp.getValue('view'); /* || 'mobile'; */
+        data.table = data.table || $sp.getValue('table');
+        data.filter = input.filter || data.filter || $sp.getValue('filter');
+        data.portal = $sp.getValue('url_suffix');
+
+        /** Dropdown filter options and initial configuration **/
+        if (data.portal == 'mobile' && data.table == 'x_nuvo_eam_clinical_work_orders') {
+            data.depart = input.depart || data.depart;
+            data.locat = input.locat || data.locat;
+            data.queryFields = gs.getProperty('x_nuvo_eam.mobile.dropdown.options.query_fields').split(',');
+
+            data.filter_aux = data.filter;
+            if (data.filter.includes('^asset.u_eam_department='))
+                data.filter_aux = data.filter.split('^asset.u_eam_department=')[0];
+            if (data.filter.includes('^u_site='))
+                data.filter_aux = data.filter.split('^u_site=')[0];
+
+            //data.deparment = getUserDepartment(gs.getUserID()); 
+            //data.location  = getUserSites(gs.getUserID());
+            data.deparment = getUserDepartment(data.filter_aux);
+            data.location = getUserSites(data.filter_aux);
+
+            data.showDropdown = true;
+            if (!data.deparment && !data.location)
+                data.showDropdown = false;
+        }
+        /** ------------------------------------------ **/
+
+        if ((data.locat || data.depart) && !input.isFiltered && (data.table == 'x_nuvo_eam_clinical_work_orders' && data.portal == 'mobile')) {
+            if ((data.depart != 'all' && data.depart != 'empty' && data.depart != null) && (data.locat != 'all' && data.locat != 'empty' && data.locat != null))
+                gr.addQuery(data.queryFields[0], data.depart).addOrCondition(data.queryFields[1], data.locat);
+
+            if (data.depart == 'empty' && data.locat == 'empty')
+                gr.addQuery(data.queryFields[0], null).addOrCondition(data.queryFields[1], null);
+
+            if ((data.depart != 'all' && data.depart != 'empty' && data.depart != null) && (data.locat == null || data.locat == 'all'))
+                gr.addQuery(data.queryFields[0], data.depart);
+
+            if ((data.depart == null || data.depart == 'all') && (data.locat != 'all' && data.locat != 'empty' && data.locat != null))
+                gr.addQuery(data.queryFields[1], data.locat);
+        }
+
+    </script>
+
+
+</body>
+
+</html>
